@@ -1,0 +1,28 @@
+mara_ymanager_homepage:
+    path:     /Ymanager
+    defaults: { _controller: MaraYmanagerBundle:Default:index }
+
+
+createBot:
+    pattern: /Ymanager/CreateBot
+    defaults: { _controller: MaraYmanagerBundle:Default:createBot }
+    requirements:
+        _method: POST
+
+deleteBot:
+    pattern: /Ymanager/DeleteBot
+    defaults: { _controller: MaraYmanagerBundle:Default:deleteBot  }
+    requirements:
+        _method: POST
+
+deleteBotChan:
+    pattern: /Ymanager/DeleteBotChan
+    defaults: { _controller: MaraYmanagerBundle:Default:deleteBotChan }
+    requirements:
+        _method: POST
+
+harvest:
+    pattern: /Ymanager/Harvest
+    defaults: { _controller: MaraYmanagerBundle:Default:harvest }
+    requirements:
+        _method: POST

@@ -1,0 +1,7 @@
+services:
+    search.vids:
+        class:    Mara\Ymanager\PHPservices\YoutubeRequestNewVids
+        arguments: [@doctrine.orm.entity_manager , @session]
+
+    em:
+        alias: doctrine.orm.entity_manager

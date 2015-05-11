@@ -1,0 +1,180 @@
+<!doctype html>
+<?php
+include 'auth.php';
+
+?>
+
+<html>
+<head>
+    <meta charset="UTF-8">
+
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    {% block stylesheets  %}
+        <link rel="stylesheet" href="{{  asset('bundles/MaraBundle/css/bootstrap.min.css') }}">
+        <link rel="stylesheet" href="{{  asset('bundles/MaraBundle/css/bootstrap-theme.min.css') }}">
+        <link rel="stylesheet" href="{{  asset('bundles/MaraBundle/css/custom.css') }}">
+        <script src="{{  asset('bundles/MaraBundle/js/jquery.min.js') }}"></script>
+        <script src="{{  asset('bundles/MaraBundle/js/bootstrap.min.js') }}"></script>
+        <script src="{{  asset('bundles/MaraBundle/js/bootstrap-datepicker.min.js') }}"></script>
+    {%  endblock%}
+
+    <title>Search</title>
+
+</head>
+<body>
+
+
+<div class="loading hide">
+    <img src="{{ asset('img/loading.gif') }}">
+</div>
+
+
+
+
+<!--
+<div><button class="btn btn-default" id="clearplaylists"> clear playlists  : </button></div>
+	<div id="clearplaylistsResp"> response clear pl</div>
+-->
+
+<div class="container">
+
+    <div class="row">
+        <div class="text-center col-lg-12">
+            <h1 class="">Youtube Manager</h1>
+
+            <p class="lead">
+                Retrieve in one playlist the last videos from your subscriptions.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="row">
+                <?=$htmlBody?>
+                <table class="table table-hover" id="listBots"><tr><th>Name</th><th>Last playlist </th><th>new Videos</th><th></th></tr>
+
+                {%   for bot in app.session.get('user').bots   %}
+                    <tr class="selectBot" id="selectBot{{ bot.id }}">
+                        <td>{{ bot.name }}</td>
+                        <td>{{ bot.lastHarvest }}</td>
+                        <td>  {{ searchVidForBot.getVideosFromChans(bot.id, bot.lastHarvest)|length }} </td>
+                        <td><img class="delBot" src="{{ asset('img/delete_icon.png')}}" /></td>
+
+                    </tr>
+                {%  endfor %}
+
+
+                </table>
+            </div>
+            <div class="row">
+
+                <div class="col-md-3" id="botsChannels"><?=$botChannels?>
+                    {%   for bot in app.session.get('user').bots   %}
+
+                    <div class="botChannels hide" id="botChannels{{ bot.id }}"><table class="botChans">
+                        {%  set chans=searchVidForBot.affBotChannels(bot.id) %}
+                            {%  for chan in chans %}
+                                <tr id="{{ chan.channelId }}{{ bot.id}}"><td><div> {{ chan.title }}</div></td><td><img class="delBotChan" id="{{ chan.channelId }}" name="{{ bot.id }}" src="{{ asset('img/delete_icon.png')}}"/></td></tr>
+                            {%  endfor %}
+                        </table></div>
+                    {%  endfor %}
+                </div>
+                <div id="vidPlayer">
+                    <?=$newVidsContainer?>
+
+                    {%   for bot in app.session.get('user').bots   %}
+                    <table class="botNewVids hide" id="botNewVids{{ bot.id }}">
+                        {% set vids=searchVidForBot.getVideosFromChans(bot.id, bot.lastHarvest) %}
+
+                        {%  if  vids|length!=0%}
+                                    <tr>
+                                        <td><button class="btn btn-default harvest" id="harvest{{bot.id}}">Make a playlist with all new videos : {{ vids|length }}</button></td>
+                                    </tr>
+                             <tr><td class="newVids" id="{{ bot.id }}"><ul>
+
+                           {% for vid in vids %}
+
+                               <li><div class="text-left">{{ vid.snippet.title }}</div></li>
+
+                           {% endfor %}
+
+                         </ul></td></tr>
+
+                        {%  else  %}
+                            <tr>
+                                <td><button class="harvest btn btn-default" id="harvest{{ bot.id }}" disabled="disabled">There is no new video</button></td>
+
+                            </tr>
+                        {%  endif %}
+
+                    </table>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="row">
+                <div> </div>
+                <div>
+
+                    <?=$htmlTest?></div>
+            </div>
+        </div>
+
+        <div class="col-md-1">
+        </div>
+
+        <div class="col-md-4">
+
+            <table id="subs">
+                {% for sub in app.security.getToken().subs %}
+                    <tr >
+                        <td> {{ sub['snippet']['title'] }} </td>
+                        <td><img class="selectSubsForNewBot" id="{{ sub['snippet']['resourceId']['channelId'] }}" src="{{ asset('img/unchecked_checkbox.png')}}"/></td>
+                    </tr>
+                {%  endfor %}
+            <tr>
+                <td></br>ALL</td>
+                <td></br><img class="selectSubsForNewBot" id="all" src=" {{ asset('img/unchecked_checkbox.png')}}"/></td>
+
+            </tr>
+            </table>
+
+            <br>bot name :<div><input type="text" id="createName" size="30"></div><div><button class="btn btn-default createBot" id="createBot">Create a bot with checked subscriptions</button></div>
+            //<? $subs ?>
+        </div>
+    </div>
+
+    <BR>
+
+    <div class="row" >
+        <?=$testTools?>
+    </div>
+</div>
+<script>
+
+    var uncheckImgPath="{{ asset('img/unchecked_checkbox.png') }}";
+    uncheckImgPath=uncheckImgPath.trim();
+    var checkImgPath="{{ asset('img/checked_checkbox.png') }}";
+    checkImgPath=checkImgPath.trim();
+    var deleteImgPath="{{ asset('img/delete_icon.png') }}";
+    deleteImgPath=deleteImgPath.trim();
+    var createBotPath=" {{  path('createBot') }}";
+    createBotPath=createBotPath.trim();
+    var handlerJsPath="{{ asset('bundles/MaraBundle/js/handler.js') }}";
+    handlerJsPath=handlerJsPath.trim();
+    var deleteBotChanPath=" {{ path('deleteBotChan') }}";
+    deleteBotChanPath=deleteBotChanPath.trim();
+    var deleteBotPath="{{ path('deleteBot') }}";
+    deleteBotPath=deleteBotPath.trim();
+    var harvestPath="{{ path('harvest') }}";
+    harvestPath=harvestPath.trim();
+
+</script>
+
+<script src="{{  asset('bundles/MaraBundle/js/handler.js') }}"></script>
+
+
+
+</body>
+</html>
