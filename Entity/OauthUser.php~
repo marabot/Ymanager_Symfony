@@ -2,7 +2,7 @@
 // src//Mara//OauthBundle//Entity//OauthUser.php
 
 
-namespace Mara\OauthBundle\Entity;
+namespace Mara\Ymanager\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\Role\Role;
@@ -20,7 +20,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * OauthUser
  *
  * @ORM\Table(name="OauthUser")
- * @ORM\Entity(repositoryClass="Mara\OauthBundle\Entity\OauthUserRepository")
+ * @ORM\Entity(repositoryClass="Mara\Ymanager\Entity\OauthUserRepository")
 
  */
 
@@ -36,6 +36,20 @@ class OauthUser implements UserInterface
      */
     protected $id;
 
+    /**
+     * @var array
+     */
+    protected $subs;
+
+    /**
+     * @var array
+     */
+    protected $bots;
+
+    /**
+     * @var array
+     */
+    protected $watchBots;
 
     /**
      * @var string
@@ -44,11 +58,10 @@ class OauthUser implements UserInterface
      */
     protected $googleId;
 
-
     /**
      * @param string $username
      */
-    public function __construct($username, $googleId)
+    public function __construct($googleId)
     {
         $this->googleId = $googleId;
     }
@@ -130,7 +143,59 @@ class OauthUser implements UserInterface
     {
         return true;
     }
+
+    /**
+     * Get id
+     *
+     * @return integer 
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    /**
+     * Set googleId
+     *
+     * @param string $googleId
+     * @return OauthUser
+     */
+    public function setGoogleId($googleId)
+    {
+        $this->googleId = $googleId;
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getBots()
+    {
+        return $this->bots;
+    }
+
+    /**
+     * @param array $bots
+     */
+    public function setBots($bots)
+    {
+        $this->bots = $bots;
+    }
+
+    /**
+     * @return array
+     */
+    public function getSubs()
+    {
+        return $this->subs;
+    }
+
+    /**
+     * @param array $subs
+     */
+    public function setSubs($subs)
+    {
+        $this->subs = $subs;
+    }
 }
-
-
-

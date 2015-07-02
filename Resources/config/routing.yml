@@ -26,3 +26,9 @@ harvest:
     defaults: { _controller: MaraYmanagerBundle:Default:harvest }
     requirements:
         _method: POST
+
+createWatchBot:
+    pattern: /Ymanager/CreateWatchBot
+    defaults: { _controller: MaraYmanagerBundle:Default:createWatchBot }
+    requirements:
+        _method: POST

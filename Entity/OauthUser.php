@@ -47,6 +47,11 @@ class OauthUser implements UserInterface
     protected $bots;
 
     /**
+     * @var array
+     */
+    protected $watchBots;
+
+    /**
      * @var string
      *
      * @ORM\Column(name="google_id", type="string", length=255, unique=true, nullable=true)
@@ -160,6 +165,22 @@ class OauthUser implements UserInterface
         $this->googleId = $googleId;
 
         return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getWatchBots()
+    {
+        return $this->watchBots;
+    }
+
+    /**
+     * @param array $bots
+     */
+    public function setWatchBots($watchBots)
+    {
+        $this->watchBots = $watchBots;
     }
 
     /**

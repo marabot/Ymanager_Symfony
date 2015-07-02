@@ -7,6 +7,7 @@ namespace Mara\Ymanager\Controller;
 
 
 use Mara\Ymanager\Entity\Bot;
+use Mara\Ymanager\Entity\watchBot;
 use Mara\Ymanager\Entity\BotChan;
 use SplHeap;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
@@ -17,9 +18,16 @@ use Mara\Ymanager\Entity\OauthUser;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\HttpFoundation\Response;
 
+
 class DefaultController extends Controller
 {
-
+    /**
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\RedirectResponse
+     * @throws Google_Exception
+     * @throws Google_ServiceException
+     * @throws \Exception
+     */
     public function indexAction(Request $request)
     {
         //create google Client
@@ -30,200 +38,234 @@ class DefaultController extends Controller
         $client->setScopes('https://www.googleapis.com/auth/youtube');
 
 
-        $redirect = filter_var('http://' . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'],
+          $redirect = filter_var('http://' . $_SERVER['HTTP_HOST'] . "/web/Ymanager",   // => version bidouillage pour que ça marche sur ovh
+        //$redirect = filter_var('http://' . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'],    //  => version d'origine propre
             FILTER_SANITIZE_URL);
         $client->setRedirectUri($redirect);
 
+        //retrieve channelId
 
-        if ($this->get('security.context')->isGranted('ROLE_OAUTH_USER'))
-        {
+        $em = $this->getDoctrine()->getManager();
 
-            $searchVidsService=$this->container->get('search.Vids');
-            $myId=$request->getSession()->get('user')->getGoogleID();
-            $request->getSession()->get('user')->setBots($searchVidsService->getMyBots($myId));
+
+        if ($this->get('security.context')->isGranted('ROLE_OAUTH_USER')) {
+
+            //$searchVidsService = $this->container->get('search.Vids');
+            $myId = $request->getSession()->get('user')->getGoogleID();
+            // $request->getSession()->get('user')->setBots($searchVidsService->getMyBots($myId));
+            $request->getSession()->get('user')->setBots($em->getRepository('MaraYmanagerBundle:Bot')->findBy(array('userId' => $myId)));
+            $request->getSession()->get('user')->setWatchBots($em->getRepository('MaraYmanagerBundle:watchBot')->findBy(array('userId' => $myId)));
 
             //$newVids=$ret->getsVideosFromChans(bot.chan time(),-1);
 
             return $this->render('MaraYmanagerBundle:Default:index.html.twig', array('test' => 'test'));
-          //  return $this->render('MaraYmanager:Default:index.html.twig', array( 'test' => $this->get('security.token_storage')->getToken()->getGoogleId()));
-        }
-        else  // if not authenticate as Oauth
+            //  return $this->render('MaraYmanager:Default:index.html.twig', array( 'test' => $this->get('security.token_storage')->getToken()->getGoogleId()));
+        } else  // if not authenticate as Oauth
         {
             if ($request->query->get('code'))  // if code is set (callback from google login form)
             {
-                // exchange code vs access and refresh token
-                $client->authenticate($request->query->get('code'));
+                        // exchange code vs access and refresh token
+                        $client->authenticate($request->query->get('code'));
 
-                // create youtube service object
-                $youtube = new \Google_Service_YouTube($client);
-                $request->getSession()->set('youtube', $youtube);
+                        // create youtube service object
+                        $youtube = new \Google_Service_YouTube($client);
+                        $request->getSession()->set('youtube', $youtube);
 
-                //retrieve channelId
-                $myChannelId=$this->getMyChannelId($youtube);
+                        //retrieve channelId
+                        $myChannelId = $this->getMyChannelId($youtube);
 
-                // retrieve my subscriptions
-                $subs=$this->mySubscriptions($youtube);
+                        // retrieve my subscriptions
+                        $subs = $this->mySubscriptions($youtube);
 
-                $searchVidsService=$this->container->get('search.Vids');
-               // $ret=$searchVidsService->deleteBotChan($chanId, $botId);
+                        // retrieve search.vids service
+                        $searchVidsService = $this->container->get('search.Vids');
+                        // $ret=$searchVidsService->deleteBotChan($chanId, $botId);
 
-                // check if user exists in Database
-                $result=$searchVidsService->getUSerByYoutubeId($myChannelId);
+                        // check if user exists in Database
+                        $result = $searchVidsService->getUSerByYoutubeId($myChannelId);
 
+                        // if not exists, create it and persist
+                        if (count($result)) {
+                            $user = $result[0];
+                            $user->setBots($em->getRepository('MaraYmanagerBundle:Bot')->findBy(array('userId' => $myChannelId)));
+                            $user->setWatchBots($em->getRepository('MaraYmanagerBundle:watchBot')->findBy(array('userId' => $myChannelId)));
+                            //  $user->setBots($searchVidsService->getMyBots($myChannelId));
+                            $user->setSubs($subs);
+                        } else {
+                            $user = new OauthUser($myChannelId);
+                            $user->setSubs($subs);
+                            $em->persist($user);
+                            $em->flush();
+                        }
 
-                // if not exists, create it and persist
-                if (count($result)) {
-                    $user=$result[0];
-                    $user->setBots($searchVidsService->getMyBots($myChannelId));
-                    $user->setSubs($subs);
-                } else {
-                    $em=$this->getDoctrine()->getManager();
-                    $user=new OauthUser($myChannelId);
-                    $user->setSubs($subs);
-                    $em->persist($user);
-                    $em->flush();
-                }
+                        // manually authenticate
+                        $roles = array('ROLE_USER', 'ROLE_OAUTH_USER');
+                        $token = new OauthToken($myChannelId, null, "ym", $roles, $client->getAccessToken(), $myChannelId, $subs);
+                        $this->get('security.token_storage')->setToken($token);
+                        $request->getSession()->set('_security_hello', serialize($token));
 
-                // manually authenticate
-                $roles=array('ROLE_USER', 'ROLE_OAUTH_USER');
-                $token = new OauthToken($myChannelId, null, "ym", $roles, $client->getAccessToken(), $myChannelId, $subs);
-                $this->get('security.token_storage')->setToken($token);
-                $request->getSession()->set('_security_hello', serialize($token));
+                        // keep user in session
+                        $request->getSession()->set('user', $user);
 
+                        return $this->render('MaraYmanagerBundle:Default:index.html.twig', array('test' => $myChannelId, 'user' => $user));
+              } else {
 
-                // keep user in session
-                $request->getSession()->set('user', $user);
+                    // if code is not set (not yet passed by google login form)
+                    $state = mt_rand();
+                    $client->setState($state);
+                    $_SESSION['state'] = $state;
 
-                return $this->render('MaraYmanagerBundle:Default:index.html.twig', array('test'=> $myChannelId, 'user'=>$user));
-            }else{
+                    $stateStr = strval($state);
+                    $client->setApprovalPrompt('force');
+                    $client->setAccessType('offline');
 
-             // if code is not set (not yet passed by google login form)
-                $state = mt_rand();
-                $client->setState($state);
-                $_SESSION['state'] = $state;
+                    $authUrl = $client->createAuthUrl();
 
-                $stateStr=strval($state);
-                $client->setApprovalPrompt('force');
-                $client->setAccessType('offline');
-
-                $authUrl = $client->createAuthUrl();
-
-                return $this->redirect($authUrl);
+                    return $this->redirect($authUrl);
             }
         }
     }
 
-
+    /**
+     * @param Request $request
+     * @return Response
+     */
     public function harvestAction(Request $request)
     {
-        $newDateHarvest=time();
-        $playlistId='0';
-        $botName='';
-        if($request->isXmlHttpRequest()) {
+        $newDateHarvest = time();
+        $playlistId = '0';
+        $botName = '';
+        if ($request->isXmlHttpRequest()) {
             $botId = $request->request->get('botId');
+            $botType= $request->request->get('botType');
             $searchVidsService = $this->container->get('search.vids');
 
-            $result=$searchVidsService->getBotById($botId);
-
-            if (count($result))
+            if ($botType=="S")
                 {
-                    $dateAfter = $result[0]->getLastHarvest();
-                    $botName= $result[0]->getName();
+                    $result = $searchVidsService->getBotById($botId);
+                    $botName = $result[0]->getName();
+                }
+            else
+                {
+                    $result = $searchVidsService->getWBotById($botId);
+                    $botName=$result[0]->getSearchWord();
                 }
 
 
+            $dateAfter = $result[0]->getLastHarvest();
 
-            $vids = $searchVidsService->getVideosFromChans($botId, $dateAfter);
-            $vidsOrdered=$this->orderVideoList($vids);
+            if ($botType=="S")
+            {
+                $vids = $searchVidsService->getVideosFromBot($botId, $dateAfter);
+            }
+            else
+            {
+                $vids = $searchVidsService->getVideosFromWatcherBot($botId, $dateAfter);
+            }
+
+
+            $vidsOrdered = $this->orderVideoList($vids);
 
             $title = 'videos from ' . date('r', $dateAfter) . ' to ' . date('r');
             $description = 'videos from ' . date('r', $dateAfter) . ' to ' . date('r');
 
             // voir pour try catch
-                $playlistId = $searchVidsService->createPrivPlaylist($title, $description);
-                foreach($vidsOrdered as $vid)
-                {
-                    $searchVidsService->addVid($vid['id']['videoId'], $playlistId['id']);
-                }
+            $playlistId = $searchVidsService->createPrivPlaylist($title, $description);
+            foreach ($vidsOrdered as $vid) {
+                $searchVidsService->addVid($vid['id']['videoId'], $playlistId['id']);
+            }
 
+
+            if ($botType=="S")
+            {
                 $searchVidsService->changeLastHarvest($botId, $newDateHarvest);
+            }
+            else
+            {
+                $searchVidsService->changeLastHarvestW($botId, $newDateHarvest);
+            }
+
         }
-            return new Response ($playlistId['id'].";".$newDateHarvest.";".$botName);
+        return new Response ($playlistId['id'] . ";" . $newDateHarvest . ";" . $botName);
     }
 
+
+    /**
+     * @param Request $request
+     * @return Response
+     */
     public function deleteBotChanAction(Request $request)
     {
-        $ret =1;
-        if($request->isXmlHttpRequest())
-        {
-            $chanId=$request->request->get('chanId');
-            $botId=$request->request->get('botId');
+        $ret = 1;
+        if ($request->isXmlHttpRequest()) {
+            $chanId = $request->request->get('chanId');
+            $botId = $request->request->get('botId');
 
-            $searchVidsService=$this->container->get('search.Vids');
-            $ret=$searchVidsService->deleteBotChan($chanId, $botId);
+            $searchVidsService = $this->container->get('search.Vids');
+            $ret = $searchVidsService->deleteBotChan($chanId, $botId);
         }
         return new Response($ret);
     }
 
     public function deleteBotAction(Request $request)
     {
-        $ret =1;
-        if($request->isXmlHttpRequest())
-        {
+        $ret = 1;
+        if ($request->isXmlHttpRequest()) {
 
-            $botId=$request->request->get('botId');
+            $botId = $request->request->get('botId');
 
-            $searchVidsService=$this->container->get('search.Vids');
-            $ret=$searchVidsService->deleteBot($botId);
+            $searchVidsService = $this->container->get('search.Vids');
+            $ret = $searchVidsService->deleteBot($botId);
 
         }
         return new Response($ret);
     }
 
+    /**
+     * @param Request $request
+     * @return Response
+     */
     public function createBotAction(Request $request)
     {
-        $return='fail';
-        $chans=array();
+        $return = 'fail';
+        $chans = array();
 
-        if($request->isXmlHttpRequest()) {
+        if ($request->isXmlHttpRequest()) {
 
             // retrieve list of channel
-            $chansTab=$request->request->get('chansTab');
-            $chansTemp=explode(';',$chansTab);
-            $name=$request->request->get('name');
+            $chansTab = $request->request->get('chansTab');
+            $chansTemp = explode(';', $chansTab);
+            $name = $request->request->get('name');
 
-            for ($i=0;$i<count($chansTemp);$i=$i+2)
-            {
-                $chans[$i/2]=array('channelId'=>$chansTemp[$i],'title'=>$chansTemp[$i+1]);
+            for ($i = 0; $i < count($chansTemp); $i = $i + 2) {
+                $chans[$i / 2] = array('channelId' => $chansTemp[$i], 'title' => $chansTemp[$i + 1]);
             }
 
             // retrieve doctrine manager and mychannelId
-            $em=$this->getDoctrine()->getManager();
-            $myChannelId=$this->get('security.token_storage')->getToken()->getGoogleId();
+            $em = $this->getDoctrine()->getManager();
+            $myChannelId = $this->get('security.token_storage')->getToken()->getGoogleId();
 
             // create newBot and persist
-            $newBot= new Bot($myChannelId, $name);
+            $newBot = new Bot($myChannelId, $name);
             $em->persist($newBot);
             $em->flush();
 
-            $searchVidsService=$this->container->get('search.Vids');
-            $newBot=$searchVidsService->getBotByUserAndCreateDate($myChannelId, $newBot->getCreateDate());
+            $searchVidsService = $this->container->get('search.Vids');
+            $newBot = $searchVidsService->getBotByUserAndCreateDate($myChannelId, $newBot->getCreateDate());
 
 
-            if ($newBot!=null)
-            {
-                $user=$request->getSession()->get('user');
-                $oldBots=$user->getBots();
+            if ($newBot != null) {
+                $user = $request->getSession()->get('user');
+                $oldBots = $user->getBots();
                 array_push($oldBots, $newBot);
                 $user->setBots($oldBots);
                 $request->getSession()->set('user', $user);
-                foreach($chans as $chan)
-                {
-                    $return=$newBot->getId();
-                    $botChan=new BotChan($return,trim($chan["channelId"]),trim($chan["title"]));
+                foreach ($chans as $chan) {
+                    $return = $newBot->getId();
+                    $botChan = new BotChan($return, trim($chan["channelId"]), trim($chan["title"]));
                     $em->persist($botChan);
                 }
-            }else // if fail
+            } else // if fail
             {
                 //TODO gérer erreur
             }
@@ -232,72 +274,116 @@ class DefaultController extends Controller
         return new Response($return);
     }
 
+    /**
+     * @param Request $request
+     * @return Response createdBot
+     */
+    public function createWatchBotAction(Request $request)
+    {
+        $return = 'fail';
+
+        if ($request->isXmlHttpRequest()) {
+
+            // retrieve list of channel
+            $textToWatch = $request->request->get('wordToWatch');
+
+            // retrieve doctrine manager and mychannelId
+            $em = $this->getDoctrine()->getManager();
+            $myChannelId = $this->get('security.token_storage')->getToken()->getGoogleId();
+
+            // create newBot and persist
+            $newBot = new watchBot($myChannelId, $textToWatch);
+            $em->persist($newBot);
+            $em->flush();
+
+                       $searchVidsService=$this->container->get('search.Vids');
+                       $newBot=$searchVidsService->getWatchBotByUserAndCreateDate($myChannelId, $newBot->getCreateDate());
+
+                        if ($newBot!=null)
+                        {
+                            $return=$newBot->getId();
+                            $user=$request->getSession()->get('user');
+                            $oldWatchBots=$user->getWatchBots();
+                            array_push($oldWatchBots, $newBot);
+                            $user->setWatchBots($oldWatchBots);
+                            $request->getSession()->set('user', $user);
+
+                        }else // if fail
+                        {
+                            //TODO gérer erreur
+                        }
+                        $em->flush();
+                    }
+            return new Response($return);
+        }
+
+
         /**
          * @param $youtube
          * @return array of subscribed channels
          */
-        function mySubscriptions($youtube){
+        function mySubscriptions($youtube)
+        {
 
-        try{
-            $channelsResponse=$youtube->subscriptions->listSubscriptions('snippet', array('mine' => true, 'maxResults'=>'50'));
+            try {
+                $channelsResponse = $youtube->subscriptions->listSubscriptions('snippet', array('mine' => true, 'maxResults' => '50'));
 
-            $subscriptionsList=array();
+                $subscriptionsList = array();
 
-            // ajout des chaine aux tableaux des chaines
-            foreach($channelsResponse['items'] as $channel)
-            {
-                $subscriptionsList[]=$channel;
+                // ajout des chaine aux tableaux des chaines
+                foreach ($channelsResponse['items'] as $channel) {
+                    $subscriptionsList[] = $channel;
+                }
+
+
+            } catch (Google_ServiceException $e) {
+                throw $e;
+
+            } catch (Google_Exception $e) {
+                throw $e;
             }
 
 
-        } catch (Google_ServiceException $e) {
-            throw $e;
-
-        } catch (Google_Exception $e) {
-            throw $e;
+            return $subscriptionsList;
         }
 
-
-        return $subscriptionsList;
-      }
-
-    /**
-     * @param $youtube
-     * @return string my youtubeChannelId
-     */
-      function getMyChannelId($youtube){
-
-          try{
-              $myChanResponse=$youtube->channels->listChannels('id', array('mine'=>true));
-              $myChan=$myChanResponse['items']['0']['id'];
-
-          } catch (Google_ServiceException $e) {
-              throw $e;
-
-          } catch (Google_Exception $e) {
-              throw $e;
-          }
-
-
-
-        return $myChan;
-     }
-
-
-    // order a videos List from older to earlier release, return the new videoList
-    function orderVideoList($videoList )
-    {
-        $newVideoList=new SimpleHeap();
-
-        foreach ($videoList as $vid)
+        /**
+         * @param $youtube
+         * @return string my youtubeChannelId
+         */
+        function getMyChannelId($youtube)
         {
-            $newVideoList->insert($vid);
+
+            try {
+                $myChanResponse = $youtube->channels->listChannels('id', array('mine' => true));
+                $myChan = $myChanResponse['items']['0']['id'];
+
+            } catch (Google_ServiceException $e) {
+                throw $e;
+
+            } catch (Google_Exception $e) {
+                throw $e;
+            }
+
+
+            return $myChan;
         }
-        return $newVideoList;
+
+
+        // order a videos List from older to earlier release, return the new videoList
+        function orderVideoList($videoList)
+        {
+            $newVideoList = new SimpleHeap();
+
+            foreach ($videoList as $vid) {
+                $newVideoList->insert($vid);
+            }
+            return $newVideoList;
+        }
+
+
     }
 
-
-}
 
 // max Heap List
 class SimpleHeap extends SplHeap

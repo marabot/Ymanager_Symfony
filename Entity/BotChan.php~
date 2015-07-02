@@ -84,30 +84,6 @@ class BotChan
         $this->title = $title;
     }
 
-
-    /**
-     * Set botId
-     *
-     * @param string $botId
-     * @return BotChan
-     */
-    public function setBotId($botId)
-    {
-        $this->botId = $botId;
-
-        return $this;
-    }
-
-    /**
-     * Set channelId
-     *
-     * @param string $channelId
-     * @return BotChan
-     */
-    public function setChannelId($channelId)
-    {
-        $this->channelId = $channelId;
-
-        return $this;
-    }
 }
+
+?>

@@ -114,32 +114,50 @@ $('#clearplaylists').click(function (){
 											)	
 									});
 							
-	// handler harvest button
+// handler harvest button
 $('body').on('click','.harvest',function(){
 
                                  $('.loading').removeClass('hide');
 
-								$id=$(this).attr('id');		
-								$botId=$id.substring(7, ($id.length));
+								$id=$(this).attr('id');
+                                $botType=$id.substring(0,9);
+                                 $botId=$id.substring(8, ($id.length));
+
+                                if ($id.charAt(7)=="S")
+                                    {
+                                        $botType="S";
+                                    }
+                                else
+                                    {
+                                        $botType="W";
+                                    }
+
 
                                 $.ajax(
                                     {
                                         type: "POST",
                                         url: harvestPath,
-                                        data: { botId : $botId },
+                                        data: { botId : $botId, botType: $botType },
                                         cache: false,
                                         success: function ($resp)
                                         {
                                                 $datas=$resp.split(";");  // 0: playlistId    1: newLastHarvestDate    2: botName
                                                  $playListId=$datas[0];
 
-                                                $botInfosContainer= "#selectBot" + $botId;
+                                               if ($botType=="S")
+                                                {
+                                                    $botInfosContainer= "#selectBot" + $botId;
+                                                    $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + $datas[1]+'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
+                                                    $newVidsContainer= "#botNewVids" + $botId;
+                                                }else
+                                                {
+                                                    $botInfosContainer= "#selectWatchBot" + $botId;
+                                                    $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + $datas[1]+'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
+                                                    $newVidsContainer= "#botNewWatchVids" + $botId;
+                                                }
 
-                                                $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + $datas[1]+'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
-
-                                                $newVidsContainer= "#botNewVids" + $botId;
                                                 $($newVidsContainer).html('<iframe id="ytplayer" type="text/html" width="320" height="195" src="http://www.youtube.com/embed?listType=playlist&list='+ $.trim($datas[0])+'" frameborder="0"/>');
-
+                                                $($newVidsContainer).removeClass('hide');
                                             $('.loading').addClass('hide');
                                         }
                                     });
@@ -331,18 +349,95 @@ $('body').on('click','#createBot',function(){
 
 });
 
+// handler createBot button wiht selected subscriptions
+$('body').on('click','#createWatchBot',function(){
+
+    var $wordToWatch=$('#searchWord');
+
+    if ($wordToWatch.val()!='')
+    {
+
+    $('.loading').removeClass('hide');
+
+    $wordToSearch=$wordToWatch.val();
+
+    $deleteImgPath="";
+    $resp='';
+
+    checkImgPath=checkImgPath.trim();
+
+        $.ajax(
+            {
+                type: "POST",
+                url: createWatchBotPath,
+                data: {wordToWatch:$wordToWatch.val()},
+                cache: false,
+                success: function ($botId)
+                {
+
+                    $newVidsHtml='<table class="botNewVids hide" id="botNewWatchVids'+ $.trim($botId)+'"><tr><td><button class="btn btn-default" id="harvest' +$.trim($botId)+'" disabled="disabled">There is no new video</button></td><div id="createBotResp"></div></tr></table>';
+
+                   // $('#listWatchers').append('<tr class="selectBot" id="selectWatchBot'+$.trim($botId)+'"><td>'+$name+'</td><td>just created</td><td>0</td><td><img class="delBot" src="'+ deleteImgPath+' " /></td></tr>');
+                    $('#listWatchers').append('<tr class="selectBot" id="selectWatchBot'+$.trim($botId)+'"><td>'+$wordToSearch+'</td><td>just created</td><td>0</td><td><img class="delBot" src="'+ deleteImgPath+' " /></td></tr>');
+
+                    $botNewVidsCont='#botNewWatchVids'+$botId;
+                    $selectBotToFocus='#selectWatchBot'+$botId;
+
+                    $('.botNewVids').addClass('hide');
+                    $('.botNewWatchVids').addClass('hide');
+                    $('.botChannels').addClass('hide');
+                    $($botNewVidsCont).removeClass('hide');
+                    $('#vidPlayer').append($newVidsHtml);
+                    $('.selectBot').css('background-color','#ffffff');
+                    $($selectBotToFocus).css('background-color','#dddddd');
+
+                    $('.loading').addClass('hide');
+                    alert('ok');
+                }
+            });
+
+        // reload_js(handlerJsPath);
+        // $.ready();
+    }
+    else
+    {
+        alert ('no channel selected');
+    }
+
+
+});
+
+
 // handler selectBot Display
 $('body').on('click','.selectBot',function (){
-    $botId= $(this).attr('id').substring(9);
+
+    var $botChansCont="";
+    var $botNewVidsCont="";
+
+
+    if ($(this).attr('id').substring(0,9)=="selectBot")
+    {
+        $botId= $(this).attr('id').substring(9);
+        $botChansCont='#botChannels'+$botId;
+        $botNewVidsCont='#botNewVids'+$botId;
+    }
+    else
+    {
+        $botId= $(this).attr('id').substring(14);
+        $botNewVidsCont='#botNewWatchVids'+$botId;
+    }
 
     $('.selectBot').css('background-color','#ffffff');
     $(this).css('background-color','#dddddd');
-    $botChansCont='#botChannels'+$botId;
-    $botNewVidsCont='#botNewVids'+$botId;
+
 
     $('.botNewVids').addClass('hide');
+
     $('.botChannels').addClass('hide');
-    $($botChansCont).removeClass('hide');
+    if ($botChansCont!="")
+    {
+        $($botChansCont).removeClass('hide');
+    }
     $($botNewVidsCont).removeClass('hide');
 });
 

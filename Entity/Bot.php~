@@ -129,30 +129,6 @@ class Bot
         return $this->userId;
     }
 
-
-    /**
-     * Set userId
-     *
-     * @param string $userId
-     * @return Bot
-     */
-    public function setUserId($userId)
-    {
-        $this->userId = $userId;
-
-        return $this;
-    }
-
-    /**
-     * Set createDate
-     *
-     * @param integer $createDate
-     * @return Bot
-     */
-    public function setCreateDate($createDate)
-    {
-        $this->createDate = $createDate;
-
-        return $this;
-    }
 }
+
+?>

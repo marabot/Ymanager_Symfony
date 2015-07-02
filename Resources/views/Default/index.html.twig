@@ -44,45 +44,97 @@ include 'auth.php';
         <div class="text-center col-lg-12">
             <h1 class="">Youtube Manager</h1>
 
-            <p class="lead">
-                Retrieve in one playlist the last videos from your subscriptions.</p>
+
         </div>
     </div>
 
+
     <div class="row">
         <div class="col-md-8">
+
+              <h4>Watcher Bots</h4>
             <div class="row">
-                <?=$htmlBody?>
-                <table class="table table-hover" id="listBots"><tr><th>Name</th><th>Last playlist </th><th>new Videos</th><th></th></tr>
+              <table class="table table-hover bg1" id="listWatchers"><tr><th>KeyWord</th><th>Last playlist </th><th>new Videos</th><th></th></tr>
+                    {%  if app.session.get('user').watchBots|length!=0 %}
+                                    {%   for watchBot in app.session.get('user').watchBots  %}
+                                        <tr class="selectBot" id="selectWatchBot{{ watchBot.id }}">
+                                            <td>  {{ watchBot.searchWord }} </td>
+                                            <td>{{ watchBot.lastHarvest|date }}</td>
+                                            <td>  {{ searchVidForBot.getVideosFromWatcherBot(watchBot.id)|length }} </td>
+                                            <td><img class="delBot" src="{{ asset('img/delete_icon.png')}}" /></td>
+                                        </tr>
+                                    {%  endfor %}
+                    {% endif %}
+              </table>
+            </div>
 
-                {%   for bot in app.session.get('user').bots   %}
-                    <tr class="selectBot" id="selectBot{{ bot.id }}">
-                        <td>{{ bot.name }}</td>
-                        <td>{{ bot.lastHarvest }}</td>
-                        <td>  {{ searchVidForBot.getVideosFromChans(bot.id, bot.lastHarvest)|length }} </td>
-                        <td><img class="delBot" src="{{ asset('img/delete_icon.png')}}" /></td>
 
-                    </tr>
-                {%  endfor %}
+            <h4>Subscription Bots</h4>
+            <div class="row">
+            <table class="table table-hover bg1" id="listBots">
 
+            {%  if app.session.get('user').bots|length!=0 %}
+                 <tr><th>Name</th><th>Last playlist </th><th>new Videos</th><th></th></tr>
+
+                        {%   for bot in app.session.get('user').bots   %}
+                            <tr class="selectBot" id="selectBot{{ bot.id }}">
+                                <td>  {{ bot.name }} </td>
+                                <td>{{ bot.lastHarvest|date }}</td>
+                                <td>  {{ searchVidForBot.getVideosFromChans(bot.id, bot.lastHarvest)|length }} </td>
+                                <td><img class="delBot" src="{{ asset('img/delete_icon.png')}}" /></td>
+
+                            </tr>
+                        {%  endfor %}
+            {% endif %}
 
                 </table>
             </div>
+
             <div class="row">
 
                 <div class="col-md-3" id="botsChannels"><?=$botChannels?>
+
                     {%   for bot in app.session.get('user').bots   %}
 
                     <div class="botChannels hide" id="botChannels{{ bot.id }}"><table class="botChans">
                         {%  set chans=searchVidForBot.affBotChannels(bot.id) %}
                             {%  for chan in chans %}
-                                <tr id="{{ chan.channelId }}{{ bot.id}}"><td><div> {{ chan.title }}</div></td><td><img class="delBotChan" id="{{ chan.channelId }}" name="{{ bot.id }}" src="{{ asset('img/delete_icon.png')}}"/></td></tr>
+                                <tr id="{{ chan.channelId }}{{ bot.id}}">
+                                        <td><div> {{ chan.title }}</div></td>
+                                        <td><img class="delBotChan" id="{{ chan.channelId }}" name="{{ bot.id }}" src="{{ asset('img/delete_icon.png')}}"/></td>
+                                </tr>
                             {%  endfor %}
                         </table></div>
                     {%  endfor %}
                 </div>
                 <div id="vidPlayer">
                     <?=$newVidsContainer?>
+
+                    {%   for bot in app.session.get('user').watchBots   %}
+                        <table class="botNewVids hide" id="botNewWatchVids{{ bot.id }}">
+                            {% set vids=searchVidForBot.getVideosFromWatcherBot(bot.id) %}
+
+                            {%  if  vids|length!=0%}
+                                <tr>
+                                    <td><button class="btn btn-default harvest" id="harvestW{{bot.id}}">Make a playlist with all new videos : {{ vids|length }}</button></td>
+                                </tr>
+                                <tr>
+                                    <td class="newVids" id="{{ bot.id }}">
+                                        <ul>
+                                            {% for vid in vids %}
+                                                <li><div class="text-left">{{ vid.snippet.title }}</div></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </td>
+                                </tr>
+                            {%  else  %}
+                                <tr>
+                                    <td><button class="harvest btn btn-default" id="harvestS{{ bot.id }}" disabled="disabled">There is no new video</button></td>
+                                </tr>
+                            {%  endif %}
+                        </table>
+                    {% endfor %}
+
 
                     {%   for bot in app.session.get('user').bots   %}
                     <table class="botNewVids hide" id="botNewVids{{ bot.id }}">
@@ -121,27 +173,30 @@ include 'auth.php';
             </div>
         </div>
 
-        <div class="col-md-1">
-        </div>
 
         <div class="col-md-4">
+            <div class="bg1">
+               text to watch :<div><input type="text" id="searchWord" size="30"></div><div><button class="btn btn-default createWatchBot" id="createWatchBot">Create a watchBot </button></div>
+            </div>
 
-            <table id="subs">
-                {% for sub in app.security.getToken().subs %}
-                    <tr >
-                        <td> {{ sub['snippet']['title'] }} </td>
-                        <td><img class="selectSubsForNewBot" id="{{ sub['snippet']['resourceId']['channelId'] }}" src="{{ asset('img/unchecked_checkbox.png')}}"/></td>
-                    </tr>
-                {%  endfor %}
-            <tr>
-                <td></br>ALL</td>
-                <td></br><img class="selectSubsForNewBot" id="all" src=" {{ asset('img/unchecked_checkbox.png')}}"/></td>
 
-            </tr>
-            </table>
+            <div class="bg1">
+                <table id="subs">
+                    {% for sub in app.security.getToken().subs %}
+                        <tr >
+                            <td> {{ sub['snippet']['title'] }} </td>
+                            <td><img class="selectSubsForNewBot" id="{{ sub['snippet']['resourceId']['channelId'] }}" src="{{ asset('img/unchecked_checkbox.png')}}"/></td>
+                        </tr>
+                    {%  endfor %}
+                <tr>
+                    <td></br>ALL</td>
+                    <td></br><img class="selectSubsForNewBot" id="all" src=" {{ asset('img/unchecked_checkbox.png')}}"/></td>
 
-            <br>bot name :<div><input type="text" id="createName" size="30"></div><div><button class="btn btn-default createBot" id="createBot">Create a bot with checked subscriptions</button></div>
-            //<? $subs ?>
+                </tr>
+                </table>
+
+                <br>bot name :<div><input type="text" id="createName" size="30"></div><div><button class="btn btn-default createBot" id="createBot">Create a bot with checked subscriptions</button></div>
+             </div>
         </div>
     </div>
 
@@ -169,6 +224,8 @@ include 'auth.php';
     deleteBotPath=deleteBotPath.trim();
     var harvestPath="{{ path('harvest') }}";
     harvestPath=harvestPath.trim();
+    var createWatchBotPath="{{ path('createWatchBot') }}";
+    createWatchBotPath=createWatchBotPath.trim();
 
 </script>
 

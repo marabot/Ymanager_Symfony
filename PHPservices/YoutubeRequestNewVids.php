@@ -67,6 +67,7 @@ class YoutubeRequestNewVids
         return $videoList;
     }
 
+    // remplace la valeur du champ "lastHarvest" (timestamp) du bot ($botId) par $newDate (timestamp), renvoi 1 si success , 0 si fail
     public function changeLastHarvest($botId,$newDate)
     {
         // retrieve channels subscribed
@@ -81,22 +82,22 @@ class YoutubeRequestNewVids
         return $result;
     }
 
-    /**
-     * @param $youtube
-     * @return mixed array
-     */
-    public function getMyBots($myChan){
-
+    // remplace la valeur du champ "lastHarvest" (timestamp) du watchBot ($botId) par $newDate (timestamp), renvoi 1 si success , 0 si fail
+    public function changeLastHarvestW($botId,$newDate)
+    {
+        // retrieve channels subscribed
         $qb = $this->em->createQueryBuilder();
-        $qb->select('u')
-            ->from('MaraYmanagerBundle:Bot', 'u')
-            ->where('u.userId = :gid')
-            ->setParameter('gid', $myChan);
-        $result = $qb->getQuery()->getArrayResult();
+        $qb->update('MaraYmanagerBundle:watchBot','u')
+            ->set('u.lastHarvest', $newDate)
+            ->where('u.id = :bid')
+            ->setParameter('bid',$botId);
+
+        $result = $qb->getQuery()->getResult();
 
         return $result;
     }
 
+    // retourne le résultat de la requête qui récupère l'utilisateur avec le compte youtube associé $myChannelId (id youtube), => pour lire le résultat : result[0]
     public function getUserByYoutubeId($myChannelId)
     {
         $qb = $this->em->createQueryBuilder();
@@ -110,20 +111,8 @@ class YoutubeRequestNewVids
         return $result;
     }
 
-    public function getBotById($botId)
-    {
-
-        $qb = $this->em->createQueryBuilder();
-        $qb->select('u')
-            ->from('MaraYmanagerBundle:Bot', 'u')
-            ->where('u.id = :bid' )
-            ->setParameter('bid', $botId)
-            ->setMaxResults(1);
-        $result = $qb->getQuery()->getResult();
-
-        return $result;
-    }
-
+    // retourne le résultat de la requête qui récupère le bot avec le compte youtube associé $myChannelId (id youtube) et créé à la date de $createDate(timestamp), => pour lire le résultat : result[0]
+    // est utilisé pour récupérer l'id d'un bot nouvellement créé.
     public function getBotByUserAndCreateDate($myChannelId, $createDate )
     {
         // retrieve the new bot (to have the auto-increment id)
@@ -136,10 +125,28 @@ class YoutubeRequestNewVids
             ->setMaxResults(1);
         $result = $qb->getQuery()->getResult();
 
+        return $result[0];
+    }
+
+    // retourne le résultat de la requête qui récupère le watchBot avec le compte youtube associé $myChannelId (id youtube) et créé à la date de $createDate(timestamp), => pour lire le résultat : result[0]
+    // est utilisé pour récupérer l'id d'un bot nouvellement créé.
+    public function getWatchBotByUserAndCreateDate($myChannelId, $createDate )
+    {
+        // retrieve the new bot (to have the auto-increment id)
+        $qb = $this->em->createQueryBuilder();
+        $qb->select('u')
+            ->from('MaraYmanagerBundle:watchBot', 'u')
+            ->where('u.userId = :uid AND u.createDate= :ucd' )
+            ->setParameter('uid', $myChannelId)
+            ->setParameter('ucd', $createDate)
+            ->setMaxResults(1);
+        $result = $qb->getQuery()->getResult();
 
         return $result[0];
     }
 
+    // efface le bot ($botId) et les subs associées,1 si success, 0 si fail
+    // TODO  optimiser la requete SQL, soit pas join soit par cascade dans BDD
     public function deleteBot($botId)
     {
         $ret=1;
@@ -186,6 +193,35 @@ class YoutubeRequestNewVids
         return $ret;
     }
 
+    // récupère un bot par son Id
+    public function getBotById($botId)
+    {
+        $qb = $this->em->createQueryBuilder();
+        $qb->select('u')
+            ->from('MaraYmanagerBundle:Bot', 'u')
+            ->where('u.id = :bid' )
+            ->setParameter('bid', $botId)
+            ->setMaxResults(1);
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    // récupère un watchBot par son Id
+    public function getWBotById($botId)
+    {
+        $qb = $this->em->createQueryBuilder();
+        $qb->select('u')
+            ->from('MaraYmanagerBundle:watchBot', 'u')
+            ->where('u.id = :bid' )
+            ->setParameter('bid', $botId)
+            ->setMaxResults(1);
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    // efface la chaine souscrite ($chanId) pour le bot $botId, retourne, 1 si success, 0 si fail
     public function deleteBotChan($chanId, $botId)
     {
         // retrieve the new bot (to have the auto-increment id)
@@ -270,6 +306,7 @@ class YoutubeRequestNewVids
         return $videoList;
     }
 
+
     // return list of $botId channels
     function affBotChannels ($botId)  {
 
@@ -284,6 +321,7 @@ class YoutubeRequestNewVids
 
         $result = $qb->getQuery()->getResult();
 
+
         foreach($result as $r)
         {
             array_push($resp,$r );
@@ -292,6 +330,7 @@ class YoutubeRequestNewVids
         return $resp;
     }
 
+    // crée une plyalist privée, retourne l'Id youtube de la playlist
     public function createPrivPlaylist($title, $description){
 
         $youtube = $this->session->get('youtube');
@@ -324,6 +363,7 @@ class YoutubeRequestNewVids
         return $playlistResponse;
     }
 
+    // ajoute la video youtube ($vidId) à la playlist ($playlistId)
     public function addVid($vidId, $playlistId){
 
         $youtube = $this->session->get('youtube');
@@ -359,4 +399,56 @@ class YoutubeRequestNewVids
         return $playlistItemResponse;
     }
 
+    // retourne une liste des vidéos publiées depuis la date lastHarvest pour le watchBot  $watchBotId
+    public function getVideosFromWatcherBot($watchBotId)
+    {
+        // retrieve channels subscribed
+        $qb = $this->em->createQueryBuilder();
+        $qb->select('u')
+            ->from('MaraYmanagerBundle:watchBot', 'u')
+            ->where('u.id = :bid')
+            ->setParameter('bid',$watchBotId)
+            ->setMaxResults(1);
+
+        $result = $qb->getQuery()->getResult();
+
+
+
+
+        $youtube = $this->session->get('youtube');
+
+        $videoList = array();
+
+        $dateAfterRFC = date('c', $result[0]->getLastHarvest());
+
+        try{
+
+                $videosResponse = $youtube->search->listSearch('snippet',
+                    array(
+                        'q'=>$result[0]->getSearchWord(),
+                        'publishedAfter' => $dateAfterRFC,
+                        'order' => 'date',
+                        'maxResults' => '50',
+                        'type' => 'video'
+                    )
+                );
+
+
+        } catch (Google_ServiceException $e) {
+            throw $e;
+
+        } catch (Google_Exception $e) {
+            throw $e;
+        }
+
+        //var_dump($videosResponse['items']);
+        // ajout des vidéos au tableau des vidéos
+        foreach ($videosResponse['items'] as $vid) {
+            if ($vid['id']['kind'] == 'youtube#video') {
+                //$videoList[]=array("name"=>$vid[],"id"=>$vid['id']['videoId']);
+                $videoList[] = $vid;
+            }
+        }
+        return $videoList;
+    }
 }
