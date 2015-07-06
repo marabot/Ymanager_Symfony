@@ -412,9 +412,6 @@ class YoutubeRequestNewVids
 
         $result = $qb->getQuery()->getResult();
 
-
-
-
         $youtube = $this->session->get('youtube');
 
         $videoList = array();
@@ -451,4 +448,8 @@ class YoutubeRequestNewVids
         }
         return $videoList;
     }
+
+
+
+
 }

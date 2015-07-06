@@ -138,30 +138,24 @@ class DefaultController extends Controller
         if ($request->isXmlHttpRequest()) {
             $botId = $request->request->get('botId');
             $botType= $request->request->get('botType');
+
             $searchVidsService = $this->container->get('search.vids');
 
             if ($botType=="S")
                 {
                     $result = $searchVidsService->getBotById($botId);
                     $botName = $result[0]->getName();
+                    $dateAfter = $result[0]->getLastHarvest();
+                    $vids = $searchVidsService->getVideosFromChans($botId,$dateAfter);
                 }
             else
                 {
                     $result = $searchVidsService->getWBotById($botId);
                     $botName=$result[0]->getSearchWord();
+                    $dateAfter = $result[0]->getLastHarvest();
+                    $vids = $searchVidsService->getVideosFromWatcherBot($botId);
                 }
 
-
-            $dateAfter = $result[0]->getLastHarvest();
-
-            if ($botType=="S")
-            {
-                $vids = $searchVidsService->getVideosFromBot($botId, $dateAfter);
-            }
-            else
-            {
-                $vids = $searchVidsService->getVideosFromWatcherBot($botId, $dateAfter);
-            }
 
 
             $vidsOrdered = $this->orderVideoList($vids);

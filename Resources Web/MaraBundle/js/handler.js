@@ -120,20 +120,24 @@ $('body').on('click','.harvest',function(){
                                  $('.loading').removeClass('hide');
 
 								$id=$(this).attr('id');
-                                $botType=$id.substring(0,9);
-                                 $botId=$id.substring(8, ($id.length));
+                                $botType="";
+                                $botId="-1";
 
-                                if ($id.charAt(7)=="S")
+
+                                if ($id.charAt(6)=="W")
                                     {
-                                        $botType="S";
+                                        $botType="W";
+                                        $botId=$id.substring(14, ($id.length-1));
                                     }
                                 else
                                     {
-                                        $botType="W";
+                                        $botType="S";
+                                        $botId=$id.substring(9, ($id.length-1));
                                     }
 
+                                alert($botType);
 
-                                $.ajax(
+                            $.ajax(
                                     {
                                         type: "POST",
                                         url: harvestPath,
@@ -147,12 +151,12 @@ $('body').on('click','.harvest',function(){
                                                if ($botType=="S")
                                                 {
                                                     $botInfosContainer= "#selectBot" + $botId;
-                                                    $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + $datas[1]+'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
+                                                    $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + "harvest just done" +'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
                                                     $newVidsContainer= "#botNewVids" + $botId;
                                                 }else
                                                 {
                                                     $botInfosContainer= "#selectWatchBot" + $botId;
-                                                    $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + $datas[1]+'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
+                                                    $($botInfosContainer).html('<td>'+$datas[2]+'</td><td>' + "harvest just done"+'</td><td>0</td><td><img class="delBot" src="'+deleteImgPath+'" /></td>');
                                                     $newVidsContainer= "#botNewWatchVids" + $botId;
                                                 }
 
